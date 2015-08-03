@@ -1,9 +1,25 @@
 {% extends "base.html" %}
 
-{% block title %}ChessBase{% endblock %}
+{% block title %}ChessBase - {{ user.username }}{% endblock %}
 
 {% block page_content %}
 <div class="page-header">
-    <h1>Hello, {{ name }}!</h1>
+    <div class="profile-header">
+        <h1>{{ user.username }}</h1>
+        {% if user.name or user.location %}
+        <p>
+            {% if user.name %}{{ user.name }}<br>{% endif %}
+            {% if user.location %}
+                From <a href="http://maps.google.com/?q={{ user.location }}">{{ user.location }}</a><br>
+            {% endif %}
+        </p>
+        {% endif %}
+        {% if user.about_me %}<p>{{ user.about_me }}</p>{% endif %}
+        <p>
+            {% if user == current_user %}
+            <a class="btn btn-default" href="{{ url_for('.edit_profile') }}">Edit Profile</a>
+            {% endif %}
+        </p>
+    </div>
 </div>
 {% endblock %}

@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}ChessBase - Repertoire{% endblock %}
+
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/chessboard-0.3.0.min.css') }}">
+{% endblock %}
+
+{% block page_content %}
+<div class="col-xs-5">
+	<div id="board">
+	</div>
+	<br>
+	<div class="btn-group btn-group-justified" role="group">
+	<a class="btn btn-success" href="{{ url_for('tools.repertoire', id=id, practice=True) }}">Train from this</a>
+	</div>
+</div>
+<div class="col-xs-2">
+</div>
+<div class="col-xs-5">
+<div id="moves" class="list-group">
+{% if moves|length == 0 %}
+<div id="start_message">
+Make a move to begin to build your repertoire!
+</div>
+{% else %}
+{% for move in moves %}
+<a href="{{ url_for('tools.repertoire', id=move.destination_position_id) }}"
+   class="list-group-item 
+   {% if move.user_move.quality_id == 1 %}
+   list-group-item-success
+   {% elif move.user_move.quality_id == 2 %}
+   list-group-item-info
+   {% elif move.user_move.quality_id == 3 %}
+   list-group-item-warning
+   {% elif move.user_move.quality_id == 4 %}
+   list-group-item-danger
+   {% endif %}
+   ">{{ move.san }}</a>
+{% endfor %}
+{% endif %}
+<div id="append_move" hidden>
+	<form method="post">
+	{{ form.append_fen() }}
+	{{ form.append_san() }}
+		<button id="san" type="button" class="btn btn-default"></button>
+	{{ form.quality(type='button', class='btn btn-default') }}
+	{{ form.submit(class='btn btn-default') }}
+	</form>
+</div> <!--append_move-->
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/chessboard-0.3.0.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chess.min.js') }}"></script>
+<script>
+function pieceTheme(piece) {
+	return '{{ url_for("static", filename="img/chesspieces/wikipedia/") }}' + piece + '.png';
+}
+
+var game = new Chess('{{ fen }}');
+
+// do not pick up pieces if the game is over
+// only pick up pieces for the side to move
+var onDragStart = function(source, piece, position, orientation) {
+  if (game.game_over() === true ||
+      (game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+      (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+    return false;
+  }
+};
+
+var onDrop = function(source, target) {
+  // see if the move is legal
+  var move = game.move({
+    from: source,
+    to: target,
+    promotion: 'q' // NOTE: always promote to a queen for example simplicity
+  });
+
+  // illegal move
+  if (move === null) return 'snapback';
+
+  $('#start_message').hide();
+  $('#append_move').show();
+  $('#san').text(game.history()[game.history().length - 1]);
+  $('#append_san').val(game.history()[game.history().length - 1]);
+  var move = game.undo();
+  $('#append_fen').val(game.fen());
+  game.move(move);
+//  updateStatus();
+};
+
+// update the board position after the piece snap 
+// for castling, en passant, pawn promotion
+var onSnapEnd = function() {
+  board.position(game.fen());
+};
+
+var cfg = {
+	draggable: true,
+	dropOffBoard: 'snapback',
+	pieceTheme: pieceTheme,
+	position: '{{ fen }}',
+	onDragStart: onDragStart,
+	onDrop: onDrop,
+	onSnapEnd: onSnapEnd
+};
+
+var board = ChessBoard('board', cfg);
+/*var updateStatus = function() {
+  var status = '';
+
+  var moveColor = 'White';
+  if (game.turn() === 'b') {
+    moveColor = 'Black';
+  }
+
+  // checkmate?
+  if (game.in_checkmate() === true) {
+    status = 'Game over, ' + moveColor + ' is in checkmate.';
+  }
+
+  // draw?
+  else if (game.in_draw() === true) {
+    status = 'Game over, drawn position';
+  }
+
+  // game still on
+  else {
+    status = moveColor + ' to move';
+
+    // check?
+    if (game.in_check() === true) {
+      status += ', ' + moveColor + ' is in check';
+    }
+  }*/
+</script>
+{% endblock %}

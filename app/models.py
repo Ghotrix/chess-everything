@@ -15,6 +15,14 @@ class Role(db.Model):
         return '<Role %r>' % self.name
 
 
+class UserMove(db.Model):
+    __tablename__ = 'user_moves'
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    move_id = db.Column(db.Integer, db.ForeignKey('moves.id'), primary_key=True)
+    quality_id = db.Column(db.Integer)
+    move = db.relationship('Move', backref=db.backref('user_move', uselist=False))
+
+
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
@@ -24,6 +32,7 @@ class User(UserMixin, db.Model):
     confirmed = db.Column(db.Boolean, default=False)
     name = db.Column(db.String(64))
     email = db.Column(db.String(64), unique=True, index=True)
+    moves = db.relationship('UserMove', backref='user')
 
     def __repr__(self):
         return '<User %r>' % self.username
@@ -115,7 +124,6 @@ class Move(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     source_position_id = db.Column(db.Integer, index=True)
     destination_position_id = db.Column(db.Integer)
-    quality_id = db.Column(db.Integer, db.ForeignKey('quality.id'))
     san = db.Column(db.String(8))
 
 
@@ -124,12 +132,38 @@ class Position(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     fen = db.Column(db.String(88), unique=True, index=True)
 
+    @staticmethod
+    def insert_initial():
+        positions = {
+                'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -'
+                }
+        for p in positions:
+            position = Position.query.filter_by(fen=p).first()
+            if position is None:
+                position = Position(fen=p)
+            db.session.add(position)
+        db.session.commit()
+
 
 class Quality(db.Model):
     __tablename__ = 'quality'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(7))
-    moves = db.relationship('Move', backref='quality', lazy='dynamic')
+
+    @staticmethod
+    def insert_initial():
+        qualities = [
+                'Good',
+                'Dubious',
+                'Bad',
+                'Blunder'
+                ]
+        for q in qualities:
+            quality = Quality.query.filter_by(name=q).first()
+            if quality is None:
+                quality = Quality(name=q)
+            db.session.add(quality)
+        db.session.commit()
 
     def __repr__(self):
         return '<Quality %r>' % self.name

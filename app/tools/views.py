@@ -11,8 +11,6 @@ from random import randint as rand
 @tools.route('/repertoire/<int:id>', methods=['GET', 'POST'])
 @login_required
 def repertoire(id=1):
-    if request.args.get('practice'):
-        print(practice(id))
     board = Board()
     form = MoveForm()
     if request.method == 'GET':
@@ -42,34 +40,32 @@ def repertoire(id=1):
         moves = Move.query.join(User.moves).filter(User.id == current_user.id, Move.source_position_id == source_position.id).all()
         return render_template('tools/repertoire.html', fen=source_position.fen + ' 0 1', moves=moves, form=form, id=id)
 
-def practice(position_id):
+@tools.route('/moves', methods = ['POST'])
+@login_required
+def moves():
+    position_id = request.form['id']
+    moves = Move.query.join(User.moves).filter(Move.source_position_id == position_id, User.id == current_user.id).all()
+    #we're only need opponent's moves, that have reply (one or more)
+    for move in moves:
+        sub_moves = Move.query.join(User.moves).filter(Move.source_position_id == move.destination_position_id, User.id == current_user.id).filter_by(quality_id = 1).all()
+        print('for src_pos {} len of submoves is {}'.format(move.destination_position_id, len(sub_moves)))
+        if len(sub_moves) == 0:
+            moves.remove(move)
+
+    #in case no more replies present from opponent
+    if  len(moves) == 0:
+        return jsonify({'reply': 'none'})
+    rindex = rand(0, len(moves) - 1)
+    opponent_move = moves[rindex]
+    first = opponent_move.san
     t = {}
-    opponents_turn = True
-    last_san = 'first'
-    last_pos_id = Position.query.filter_by(id=position_id).first().id
-    while True:
-        if opponents_turn:
-            moves = Move.query.join(User.moves).filter(Move.source_position_id == last_pos_id, User.id == current_user.id).all()
-            if len(moves) == 0:
-                break
-            rindex = rand(0, len(moves) - 1)
-        else:
-            moves = Move.query.join(User.moves).filter(User.id == current_user.id, Move.source_position_id == last_pos_id).filter_by(quality_id = 1).all()
-            if len(moves) == 0:
-                break
+    t['reply'] = first
+    t['good_moves'] = []
 
-        if opponents_turn:
-            t[last_san] = [moves[rindex].san]
-        else:
-            for move in moves:
-                if last_san in t:
-                    t[last_san] += [move.san]
-                else:
-                    t[last_san] = [move.san]
+    moves = Move.query.join(User.moves).filter(User.id == current_user.id, Move.source_position_id == opponent_move.destination_position_id).filter_by(quality_id = 1).all()
+    
+    for move in moves:
+        t['good_moves'] += [[move.san, move.destination_position_id]]
 
-        opponents_turn = not opponents_turn
-        last_san = moves[rindex].san
-        last_pos_id = moves[rindex].destination_position_id
-       
     print(t)
     return jsonify(t)

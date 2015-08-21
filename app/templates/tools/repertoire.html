@@ -14,7 +14,7 @@
 	</div>
 	<br>
 	<div class="btn-group btn-group-justified" role="group">
-	<a class="btn btn-success" href="{{ url_for('tools.repertoire', id=id, practice=True) }}">Train from this</a>
+		<a class="btn btn-success" href="javascript:getMoves('{{id}}')">Train from this</a>
 	</div>
 </div>
 <div class="col-xs-2">
@@ -64,6 +64,7 @@ function pieceTheme(piece) {
 }
 
 var game = new Chess('{{ fen }}');
+var practicing = 0;
 
 // do not pick up pieces if the game is over
 // only pick up pieces for the side to move
@@ -82,6 +83,24 @@ var onDrop = function(source, target) {
     to: target,
     promotion: 'q' // NOTE: always promote to a queen for example simplicity
   });
+
+  if (practicing && move !== null) {
+	  var foundSan = 0;
+	  var foundIndex = 0;
+	  for (index = 0; index < goodMoves.length; index++) {
+		if (goodMoves[index][0] == move.san) {
+		  foundSan = 1;
+		  foundIndex = index;
+		}
+	  }
+	  if (!foundSan) {
+		game.undo();
+		return 'snapback';
+	  }
+	  else {
+	  	getMoves(goodMoves[foundIndex][1]);
+	  }
+  }
 
   // illegal move
   if (move === null) return 'snapback';
@@ -140,5 +159,19 @@ var board = ChessBoard('board', cfg);
       status += ', ' + moveColor + ' is in check';
     }
   }*/
+
+function getMoves(positionId) {
+	if (!practicing)  practicing = 1;
+	$.post('/tools/moves', {
+		id: positionId
+	}).done(function(moves) {
+		if (moves['reply'] == 'none') {
+		
+		}
+		game.move(moves['reply']);
+		board.position(game.fen());
+		goodMoves = moves['good_moves'];
+	})
+}
 </script>
 {% endblock %}
